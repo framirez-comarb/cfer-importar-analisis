@@ -1,0 +1,6 @@
+google-analytics-data>=0.18
+google-auth>=2.0
+pandas>=2.0
+plotly>=6.0
+kaleido>=1.0
+python-dotenv>=1.0

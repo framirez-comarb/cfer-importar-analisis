@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Configuracion local
+.env
+.env.local
+
+# Credenciales (defense in depth — fuera del repo igual)
+comarb-analytics-*.json
+sa_credentials.json
+*-service-account.json
+
+# Outputs generados
+output/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

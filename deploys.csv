@@ -1,0 +1,6 @@
+fecha,titulo,descripcion
+2025-11-01,Nuevo modal de importacion CM03,Rediseño del modal de importacion de archivos en CM03 (confirmado por Patricia). Fecha aproximada — confirmar dia exacto contra la bitacora 2026 - DESPLIEGUES - BITACORA en Drive.
+2026-01-15,Hotfix Habana + multi-jurisdiccion,Correccion del bug Habana y mejoras en flujo multi-jurisdiccion (mencionado por Gustavo). Fecha aproximada.
+2026-02-15,Mejoras adicionales CM03/CM04,Cambios menores en validaciones del modal. Fecha aproximada.
+2026-04-01,Lanzamiento de CM04,Primer mes con eventos de EDM_CM04_importar_archivo_datos (2 eventos / 2 users en abril/2026). Confirmar fecha exacta de release.
+2026-04-15,Subida de Naes,Deploy separado segun mencion de Gustavo (no relacionado al boton).
