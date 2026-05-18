@@ -177,7 +177,8 @@ def main() -> None:
             print(f"⚠️  No se pudo exportar PNG: {type(e).__name__}: {e}")
 
     # ── HTML combinado: mensual arriba, CM04 diario al medio, Excel diario abajo ──
-    html_path = out_dir / "uso_importar.html"
+    # Nombre "index.html" para que GitHub Pages lo sirva como root del sitio.
+    html_path = out_dir / "index.html"
     combinar_html(
         [fig_mensual, *figuras_diarias],
         titulo_pagina="Uso del botón Importar archivos en CFER web",
