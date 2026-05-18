@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from src.deploys import Deploy
-from src.ga4_client import MetricaMensual
+from src.ga4_client import MetricaDiaria, MetricaMensual
 
 # Paleta consistente
 COLOR_EXCEL = "#3366cc"
@@ -219,3 +219,127 @@ def exportar(fig: go.Figure, html_path: Path, png_path: Path) -> None:
         fig.write_image(str(png_path), width=1400, height=720, scale=2)
     except Exception as e:  # noqa: BLE001 — queremos cualquier fallo aca
         print(f"⚠️  No se pudo exportar PNG (necesita kaleido): {type(e).__name__}: {e}")
+
+
+def construir_grafico_diario(
+    metricas: list[MetricaDiaria],
+    titulo: str,
+    color_barras: str = COLOR_CM04,
+    mostrar_etiquetas: bool = True,
+) -> go.Figure:
+    """Grafico de barras + linea de usuarios para un evento, a granularidad
+    diaria. Pensado para ver el mes corriente.
+
+    Args:
+        metricas: lista de datos diarios del evento.
+        titulo: titulo del grafico.
+        color_barras: color de las barras (default rojo CM04).
+        mostrar_etiquetas: si True, muestra el valor sobre cada barra. Util
+            para volumenes bajos (CM04). Para volumenes altos las etiquetas
+            saturan el grafico.
+    """
+    fig = go.Figure()
+    if not metricas:
+        fig.update_layout(
+            title=dict(text=titulo + " — (sin eventos en el rango)", x=0.5),
+            height=300,
+        )
+        return fig
+
+    df = pd.DataFrame(
+        [
+            {
+                "fecha": m.fecha,
+                "eventos": m.eventos,
+                "usuarios": m.usuarios_activos,
+            }
+            for m in metricas
+        ]
+    )
+    fig.add_trace(
+        go.Bar(
+            x=df["fecha"],
+            y=df["eventos"],
+            name="Eventos",
+            marker_color=color_barras,
+            text=df["eventos"] if mostrar_etiquetas else None,
+            textposition="outside" if mostrar_etiquetas else "none",
+            hovertemplate=(
+                "<b>%{x|%Y-%m-%d}</b><br>Eventos: %{y:,}<extra></extra>"
+            ),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=df["fecha"],
+            y=df["usuarios"],
+            mode="lines+markers",
+            name="Usuarios activos",
+            line=dict(color=COLOR_USERS, width=2),
+            marker=dict(size=8),
+            hovertemplate=(
+                "<b>%{x|%Y-%m-%d}</b><br>Usuarios: %{y}<extra></extra>"
+            ),
+        )
+    )
+    fig.update_layout(
+        title=dict(text=titulo, x=0.5, xanchor="center", font=dict(size=15)),
+        hovermode="x unified",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.25,
+            xanchor="left",
+            x=0,
+        ),
+        margin=dict(t=70, b=80, l=70, r=70),
+        height=420,
+        plot_bgcolor="rgba(245, 245, 245, 0.4)",
+    )
+    fig.update_xaxes(title="Día", tickformat="%d/%m", dtick="D1")
+    fig.update_yaxes(title="Eventos / Usuarios", rangemode="tozero")
+    return fig
+
+
+def combinar_html(
+    figs: list[go.Figure],
+    titulo_pagina: str,
+    html_path: Path,
+) -> None:
+    """Concatena varias figuras Plotly en un solo HTML, una abajo de otra.
+
+    La primera figura incluye plotly.js (vía CDN); las siguientes lo
+    referencian para no duplicar el bundle.
+    """
+    if not figs:
+        return
+    html_path.parent.mkdir(parents=True, exist_ok=True)
+    partes: list[str] = []
+    for i, fig in enumerate(figs):
+        partes.append(
+            fig.to_html(
+                full_html=False,
+                include_plotlyjs="cdn" if i == 0 else False,
+                config={"displayModeBar": True, "responsive": True},
+            )
+        )
+
+    separador = (
+        '<hr style="margin: 36px 60px; border: 0; border-top: 1px solid #ddd;">'
+    )
+    cuerpo = separador.join(partes)
+    documento = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>{titulo_pagina}</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0; padding: 12px 0; background: #fafafa; }}
+  </style>
+</head>
+<body>
+{cuerpo}
+</body>
+</html>"""
+    html_path.write_text(documento, encoding="utf-8")

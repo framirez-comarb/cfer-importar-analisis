@@ -6,6 +6,7 @@ Uso:
 import io
 import os
 import sys
+from datetime import date
 from pathlib import Path
 
 # Forzar UTF-8 en stdout/stderr (consolas Windows cp1252 no manejan emojis)
@@ -18,8 +19,12 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from src.deploys import cargar_deploys
-from src.ga4_client import crear_cliente, metricas_mensuales_por_evento
-from src.grafico import construir_grafico, exportar
+from src.ga4_client import (
+    crear_cliente,
+    metricas_diarias_por_evento,
+    metricas_mensuales_por_evento,
+)
+from src.grafico import combinar_html, construir_grafico, construir_grafico_diario, exportar
 
 # Eventos a analizar (el orden importa para que en el grafico CM04 quede sobre Excel)
 EVENTOS: list[str] = [
@@ -102,18 +107,85 @@ def main() -> None:
     df_out.to_csv(csv_path, index=False, encoding="utf-8-sig")
     print(f"\n💾 {csv_path}")
 
-    # ── Grafico ──
-    print("📈 Construyendo grafico...")
-    fig = construir_grafico(
+    # ── Grafico mensual ──
+    print("📈 Construyendo grafico mensual...")
+    fig_mensual = construir_grafico(
         todas,
         deploys,
         titulo="Uso del botón <b>'Importar archivos'</b> en CFER web (mensual)",
     )
+    png_mensual = out_dir / "uso_importar.png"
+    exportar(fig_mensual, out_dir / "_uso_importar_mensual.html", png_mensual)
+    # exportar() arriba escribe un HTML temporal para reusar la logica; lo
+    # eliminamos porque vamos a generar el HTML combinado con combinar_html().
+    (out_dir / "_uso_importar_mensual.html").unlink(missing_ok=True)
+    print(f"🖼️  {png_mensual}")
+
+    # ── Graficos diarios del mes corriente (uno por evento) ──
+    # Re-consulta GA4 (data fresh) acotada al mes actual para mostrar el
+    # crecimiento dia a dia.
+    hoy = date.today()
+    desde_mes = f"{hoy.year:04d}-{hoy.month:02d}-01"
+    hasta_mes = hoy.isoformat()
+
+    # Color y opciones por evento. Los volumenes de Excel son ~5-7k/dia, las
+    # etiquetas en las barras saturan; las desactivo solo para ese caso.
+    config_diaria = [
+        {
+            "evento": "EDM_CM04_importar_archivo_datos",
+            "color": "#dc3912",
+            "etiquetas": True,
+            "png_nombre": "uso_cm04_diario.png",
+        },
+        {
+            "evento": "EDM_importar_excel_o_xml",
+            "color": "#3366cc",
+            "etiquetas": False,
+            "png_nombre": "uso_excel_diario.png",
+        },
+    ]
+    figuras_diarias: list = []
+    for cfg in config_diaria:
+        ev = cfg["evento"]
+        print(f"\n📊 Re-consultando {ev} diario ({desde_mes} → {hasta_mes})")
+        diarios = metricas_diarias_por_evento(client, property_id, ev, desde_mes, hasta_mes)
+        total_eventos_mes = sum(m.eventos for m in diarios)
+        if diarios:
+            for m in diarios:
+                print(f"   {m.fecha.isoformat()}  ev={m.eventos:>6,}  users={m.usuarios_activos:>5,}")
+            print(f"   Total mes (eventos): {total_eventos_mes:,}")
+        else:
+            print("   (sin eventos en el mes corriente)")
+
+        fig_d = construir_grafico_diario(
+            diarios,
+            titulo=(
+                f"<b>{ev}</b> — diario {hoy.year}-{hoy.month:02d} "
+                f"(total mes: {total_eventos_mes:,} eventos)"
+            ),
+            color_barras=cfg["color"],
+            mostrar_etiquetas=cfg["etiquetas"],
+        )
+        figuras_diarias.append(fig_d)
+
+        # PNG individual por gráfico diario
+        png_path = out_dir / cfg["png_nombre"]
+        try:
+            fig_d.write_image(str(png_path), width=1400, height=420, scale=2)
+            print(f"🖼️  {png_path}")
+        except Exception as e:  # noqa: BLE001
+            print(f"⚠️  No se pudo exportar PNG: {type(e).__name__}: {e}")
+
+    # ── HTML combinado: mensual arriba, CM04 diario al medio, Excel diario abajo ──
     html_path = out_dir / "uso_importar.html"
-    png_path = out_dir / "uso_importar.png"
-    exportar(fig, html_path, png_path)
-    print(f"🎨 {html_path}")
-    print(f"🖼️  {png_path}")
+    combinar_html(
+        [fig_mensual, *figuras_diarias],
+        titulo_pagina="Uso del botón Importar archivos en CFER web",
+        html_path=html_path,
+    )
+    print(
+        f"\n🎨 {html_path} (contiene 3 graficos: mensual + CM04 diario + Excel diario)"
+    )
     print("\n✅ Listo. Abrir el HTML en el browser para revisar el grafico interactivo.")
 
 

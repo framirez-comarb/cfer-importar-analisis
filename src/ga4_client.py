@@ -1,4 +1,5 @@
-"""Cliente GA4 Data API: consulta mensual de un evento (eventos, usuarios, ratio)."""
+"""Cliente GA4 Data API: consultas mensual y diaria por evento."""
+from datetime import date
 from typing import NamedTuple
 
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
@@ -23,6 +24,14 @@ class MetricaMensual(NamedTuple):
     usuarios_activos: int       # activeUsers
     usuarios_total: int         # totalUsers
     eventos_por_usuario: float  # ev/activeUsers (0 si no hay usuarios)
+
+
+class MetricaDiaria(NamedTuple):
+    """Datos diarios de un evento puntual."""
+    fecha: date
+    evento: str
+    eventos: int
+    usuarios_activos: int
 
 
 def crear_cliente(creds_path: str) -> BetaAnalyticsDataClient:
@@ -91,3 +100,49 @@ def metricas_mensuales_por_evento(
             )
         )
     return sorted(filas, key=lambda r: r.mes)
+
+
+def metricas_diarias_por_evento(
+    client: BetaAnalyticsDataClient,
+    property_id: str,
+    evento: str,
+    desde: str,
+    hasta: str,
+) -> list[MetricaDiaria]:
+    """Consulta GA4 y devuelve metricas DIARIAS para un evento en un rango.
+
+    Pensado para mirar el mes corriente con granularidad por dia (util cuando
+    el volumen es bajo y queremos ver crecimiento dia a dia).
+    """
+    filt = FilterExpression(
+        filter=Filter(
+            field_name="eventName",
+            string_filter=Filter.StringFilter(
+                value=evento,
+                match_type=Filter.StringFilter.MatchType.EXACT,
+            ),
+        )
+    )
+    req = RunReportRequest(
+        property=f"properties/{property_id}",
+        dimensions=[Dimension(name="date")],
+        metrics=[Metric(name="eventCount"), Metric(name="activeUsers")],
+        date_ranges=[DateRange(start_date=desde, end_date=hasta)],
+        dimension_filter=filt,
+        limit=200,
+    )
+    resp = client.run_report(req)
+
+    filas: list[MetricaDiaria] = []
+    for row in resp.rows:
+        d = row.dimension_values[0].value  # "YYYYMMDD"
+        fecha_dt = date(int(d[:4]), int(d[4:6]), int(d[6:8]))
+        filas.append(
+            MetricaDiaria(
+                fecha=fecha_dt,
+                evento=evento,
+                eventos=int(row.metric_values[0].value),
+                usuarios_activos=int(row.metric_values[1].value),
+            )
+        )
+    return sorted(filas, key=lambda r: r.fecha)

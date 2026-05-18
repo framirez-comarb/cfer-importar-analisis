@@ -21,8 +21,10 @@ comarb-analytics-*.json
 sa_credentials.json
 *-service-account.json
 
-# Outputs generados
-output/
+# Outputs generados: dejamos commitearlos para que el workflow guarde la
+# historia versionada (mismo patron que ps-flujo-comarb y ps-verificacion-comarb).
+# Si quisieras NO commitear los outputs locales, descomenta la linea de abajo.
+# output/
 
 # IDE
 .vscode/
