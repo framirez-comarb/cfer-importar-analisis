@@ -1,5 +1,7 @@
 # cfer-importar-analisis
 
+📊 **Reporte en vivo**: <https://framirez-comarb.github.io/cfer-importar-analisis/>
+
 Análisis mensual del uso del botón **"Importar archivos"** del modal de DJ (CM03/CM04) en **CFER web**, y correlación con los deploys del sistema.
 
 Pedido por Gustavo Bodner (Producto/UGT, Comarb) en la Weekly del 11/05/2026 a partir del crecimiento exponencial observado en GA4 entre ago/2025 y feb/2026.
@@ -60,9 +62,29 @@ python -m src.main
 ```
 
 Outputs en `output/`:
-- `uso_importar.html` — gráfico interactivo (abrir en browser)
-- `uso_importar.png` — versión estática para compartir
-- `datos_mensuales.csv` — tabla de respaldo
+- `index.html` — los 3 gráficos (mensual + CM04 diario + Excel diario)
+- `uso_importar.png` — versión estática del gráfico mensual
+- `uso_cm04_diario.png` — versión estática del diario de CM04
+- `uso_excel_diario.png` — versión estática del diario de Excel
+- `datos_mensuales.csv` — tabla mensual de respaldo
+
+## Publicación vía GitHub Pages
+
+El reporte se publica automáticamente en
+<https://framirez-comarb.github.io/cfer-importar-analisis/> a partir del
+`output/index.html` que regenera el workflow.
+
+Repo público para que Pages pueda servirlo con plan Free. La data del reporte
+son agregados mensuales/diarios (eventos y usuarios totales), sin CUITs ni
+datos personales. Las credenciales del service account viven solo en GitHub
+Secrets (`SERVICE_ACCOUNT_JSON`), nunca en el repo.
+
+## Automatización
+
+GitHub Actions (`.github/workflows/refresh.yml`) corre el script de lunes a
+viernes a las **8:00 hora Argentina (UTC-3)** y commitea los outputs
+regenerados al repo. También se puede disparar manualmente desde la pestaña
+Actions con `workflow_dispatch`.
 
 ## Fuente de deploys
 
